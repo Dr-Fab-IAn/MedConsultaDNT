@@ -1,13 +1,10 @@
-import { validateRuc } from '../../src/utils/identificationValidation';
-
 const DEFAULT_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImZhYmlyb2RpMjMxMDk5QGdtYWlsLmNvbSIsImp0aSI6IjcyY2RmNjY1NTk2ZjZhZGlifQ.VcbA2V_a_LTiY0_f3raC0idqWq3Tzw_WKmptnnEsTos';
 const BASE_URL = 'https://dniruc.apisperu.com';
 
 export default async function handler(req: any, res: any) {
-  // Manejo de CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
@@ -18,22 +15,29 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const rucParam = req.query?.ruc || (typeof req.url === 'string' ? req.url.split('?')[0].split('/').filter(Boolean).pop() : '');
-  const ruc = String(rucParam || '').trim();
+  let rawRuc = req.query?.ruc;
+  if (!rawRuc && typeof req.url === 'string') {
+    const urlParts = req.url.split('?')[0].split('/').filter(Boolean);
+    const candidate = urlParts[urlParts.length - 1];
+    if (candidate && candidate !== '[ruc]' && candidate !== 'ruc') {
+      rawRuc = candidate;
+    }
+  }
 
-  const validation = validateRuc(ruc);
-  if (!validation.isValid) {
+  const cleanRuc = String(rawRuc || '').replace(/\D/g, '').slice(0, 11);
+
+  if (!cleanRuc || cleanRuc.length !== 11) {
     res.status(400).json({
       success: false,
-      message: validation.error || 'El número de RUC es inválido según Módulo 11 SUNAT.',
+      message: `RUC inválido (${rawRuc || 'vacío'}). Debe constar de 11 dígitos numéricos.`,
     });
     return;
   }
 
-  const activeToken = process.env.APISPERU_TOKEN || DEFAULT_TOKEN;
+  const activeToken = (process.env.APISPERU_TOKEN || DEFAULT_TOKEN).trim();
 
   try {
-    const url = `${BASE_URL}/api/v1/ruc/${validation.cleanRuc}`;
+    const url = `${BASE_URL}/api/v1/ruc/${cleanRuc}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {

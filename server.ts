@@ -19,10 +19,9 @@ let activeToken = process.env.APISPERU_TOKEN || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI
 
 const BASE_URL = 'https://dniruc.apisperu.com';
 
-// Endpoint para consultar DNI (8 dígitos) con verificación previa
-app.get('/api/dni/:dni', async (req: Request, res: Response): Promise<void> => {
-  const { dni } = req.params;
-
+// Endpoint para consultar DNI (8 dígitos) por ruta o query param
+const handleDniQuery = async (rawDni: string, res: Response): Promise<void> => {
+  const dni = (rawDni || '').trim();
   const validation = validateDni(dni);
   if (!validation.isValid) {
     res.status(400).json({
@@ -35,7 +34,7 @@ app.get('/api/dni/:dni', async (req: Request, res: Response): Promise<void> => {
   const cleanDni = validation.cleanDni;
 
   try {
-    const url = `${BASE_URL}/api/v1/dni/${dni}`;
+    const url = `${BASE_URL}/api/v1/dni/${cleanDni}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -78,12 +77,14 @@ app.get('/api/dni/:dni', async (req: Request, res: Response): Promise<void> => {
       message: error?.message || 'Error interno al comunicarse con apisperu.com',
     });
   }
-});
+};
 
-// Endpoint para consultar RUC (11 dígitos) con Módulo 11 SUNAT
-app.get('/api/ruc/:ruc', async (req: Request, res: Response): Promise<void> => {
-  const { ruc } = req.params;
+app.get('/api/dni/:dni', (req: Request, res: Response) => handleDniQuery(req.params.dni, res));
+app.get('/api/dni', (req: Request, res: Response) => handleDniQuery((req.query.dni as string) || '', res));
 
+// Endpoint para consultar RUC (11 dígitos) por ruta o query param
+const handleRucQuery = async (rawRuc: string, res: Response): Promise<void> => {
+  const ruc = (rawRuc || '').trim();
   const validation = validateRuc(ruc);
   if (!validation.isValid) {
     res.status(400).json({
@@ -96,7 +97,7 @@ app.get('/api/ruc/:ruc', async (req: Request, res: Response): Promise<void> => {
   const cleanRuc = validation.cleanRuc;
 
   try {
-    const url = `${BASE_URL}/api/v1/ruc/${ruc}`;
+    const url = `${BASE_URL}/api/v1/ruc/${cleanRuc}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -128,7 +129,10 @@ app.get('/api/ruc/:ruc', async (req: Request, res: Response): Promise<void> => {
       message: error?.message || 'Error interno al comunicarse con apisperu.com',
     });
   }
-});
+};
+
+app.get('/api/ruc/:ruc', (req: Request, res: Response) => handleRucQuery(req.params.ruc, res));
+app.get('/api/ruc', (req: Request, res: Response) => handleRucQuery((req.query.ruc as string) || '', res));
 
 // Estado de configuración y token
 app.get('/api/config/status', (req: Request, res: Response) => {

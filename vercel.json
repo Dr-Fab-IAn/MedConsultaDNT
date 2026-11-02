@@ -2,19 +2,7 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/dni/:dni",
-      "destination": "/api/dni/[dni]"
-    },
-    {
-      "source": "/api/ruc/:ruc",
-      "destination": "/api/ruc/[ruc]"
-    },
-    {
-      "source": "/api/config/status",
-      "destination": "/api/config/status"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

@@ -1,13 +1,11 @@
-import { validateDni } from '../../src/utils/identificationValidation';
-
 const DEFAULT_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImZhYmlyb2RpMjMxMDk5QGdtYWlsLmNvbSIsImp0aSI6IjcyY2RmNjY1NTk2ZjZhZGlifQ.VcbA2V_a_LTiY0_f3raC0idqWq3Tzw_WKmptnnEsTos';
 const BASE_URL = 'https://dniruc.apisperu.com';
 
 export default async function handler(req: any, res: any) {
-  // Manejo de CORS
+  // Configuración exhaustiva de CORS para evitar bloqueos en el navegador
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
@@ -18,23 +16,30 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  // Extraer DNI de query param (Vercel lo pasa en req.query.dni) o de URL
-  const dniParam = req.query?.dni || (typeof req.url === 'string' ? req.url.split('?')[0].split('/').filter(Boolean).pop() : '');
-  const dni = String(dniParam || '').trim();
+  // Extraer DNI de req.query.dni o de la URL (/api/dni/12345678)
+  let rawDni = req.query?.dni;
+  if (!rawDni && typeof req.url === 'string') {
+    const urlParts = req.url.split('?')[0].split('/').filter(Boolean);
+    const candidate = urlParts[urlParts.length - 1];
+    if (candidate && candidate !== '[dni]' && candidate !== 'dni') {
+      rawDni = candidate;
+    }
+  }
 
-  const validation = validateDni(dni);
-  if (!validation.isValid) {
+  const cleanDni = String(rawDni || '').replace(/\D/g, '').slice(0, 8);
+
+  if (!cleanDni || cleanDni.length !== 8) {
     res.status(400).json({
       success: false,
-      message: validation.error || 'El número de DNI es inválido según especificación RENIEC.',
+      message: `DNI inválido (${rawDni || 'vacío'}). Debe constar de 8 dígitos numéricos.`,
     });
     return;
   }
 
-  const activeToken = process.env.APISPERU_TOKEN || DEFAULT_TOKEN;
+  const activeToken = (process.env.APISPERU_TOKEN || DEFAULT_TOKEN).trim();
 
   try {
-    const url = `${BASE_URL}/api/v1/dni/${validation.cleanDni}`;
+    const url = `${BASE_URL}/api/v1/dni/${cleanDni}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -56,12 +61,12 @@ export default async function handler(req: any, res: any) {
     }
 
     const normalized = {
-      dni: data?.dni || dni,
+      dni: data?.dni || cleanDni,
       nombres: data?.nombres || '',
       apellidoPaterno: data?.apellidoPaterno || '',
       apellidoMaterno: data?.apellidoMaterno || '',
       nombreCompleto: data?.nombreCompleto || `${data?.nombres || ''} ${data?.apellidoPaterno || ''} ${data?.apellidoMaterno || ''}`.trim(),
-      codVerifica: data?.codVerifica || '',
+      codVerifica: data?.codVerifica ?? '',
     };
 
     res.status(200).json({

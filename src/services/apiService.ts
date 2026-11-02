@@ -19,7 +19,23 @@ export async function queryDni(dni: string): Promise<DniQueryResult> {
 
   const cleanDni = validation.cleanDni;
 
-  // Intento 1: A través del endpoint local o serverless (/api/dni/:dni)
+  const parseDniPayload = (resJson: any): DniQueryResult | null => {
+    if (!resJson) return null;
+    const target = resJson.data || resJson;
+    if (target && (target.dni || target.nombres)) {
+      return {
+        dni: target.dni || cleanDni,
+        nombres: target.nombres || '',
+        apellidoPaterno: target.apellidoPaterno || '',
+        apellidoMaterno: target.apellidoMaterno || '',
+        nombreCompleto: target.nombreCompleto || `${target.nombres || ''} ${target.apellidoPaterno || ''} ${target.apellidoMaterno || ''}`.trim(),
+        codVerifica: target.codVerifica ?? '',
+      };
+    }
+    return null;
+  };
+
+  // Intento 1: A través del endpoint /api/dni/:dni
   try {
     const response = await fetch(`/api/dni/${cleanDni}`, {
       method: 'GET',
@@ -29,15 +45,31 @@ export async function queryDni(dni: string): Promise<DniQueryResult> {
     const contentType = response.headers.get('content-type') || '';
     if (response.ok && contentType.includes('application/json')) {
       const resJson = await response.json();
-      if (resJson?.success && resJson?.data) {
-        return resJson.data as DniQueryResult;
-      }
+      const parsed = parseDniPayload(resJson);
+      if (parsed) return parsed;
     }
   } catch (err) {
-    console.warn('Proxy /api/dni falló, intentando consulta directa:', err);
+    console.warn('Proxy /api/dni/:dni falló:', err);
   }
 
-  // Intento 2: Fallback directo a apisperu.com (resuelve despliegues estáticos y Vercel)
+  // Intento 2: A través del endpoint con query param /api/dni?dni=:dni
+  try {
+    const response = await fetch(`/api/dni?dni=${cleanDni}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (response.ok && contentType.includes('application/json')) {
+      const resJson = await response.json();
+      const parsed = parseDniPayload(resJson);
+      if (parsed) return parsed;
+    }
+  } catch (err) {
+    console.warn('Proxy /api/dni?dni= falló:', err);
+  }
+
+  // Intento 3: Fallback directo a apisperu.com (para pruebas de red directa)
   try {
     const directUrl = `${DIRECT_APISPERU_BASE}/api/v1/dni/${cleanDni}`;
     const directRes = await fetch(directUrl, {
@@ -50,16 +82,8 @@ export async function queryDni(dni: string): Promise<DniQueryResult> {
 
     if (directRes.ok) {
       const raw = await directRes.json();
-      if (raw && (raw.nombres || raw.dni)) {
-        return {
-          dni: raw.dni || cleanDni,
-          nombres: raw.nombres || '',
-          apellidoPaterno: raw.apellidoPaterno || '',
-          apellidoMaterno: raw.apellidoMaterno || '',
-          nombreCompleto: raw.nombreCompleto || `${raw.nombres || ''} ${raw.apellidoPaterno || ''} ${raw.apellidoMaterno || ''}`.trim(),
-          codVerifica: raw.codVerifica || '',
-        };
-      }
+      const parsed = parseDniPayload(raw);
+      if (parsed) return parsed;
     }
   } catch (fallbackErr) {
     console.error('Error en fallback directo DNI:', fallbackErr);
@@ -76,6 +100,15 @@ export async function queryRuc(ruc: string): Promise<RucQueryResult> {
 
   const cleanRuc = validation.cleanRuc;
 
+  const parseRucPayload = (resJson: any): RucQueryResult | null => {
+    if (!resJson) return null;
+    const target = resJson.data || resJson;
+    if (target && (target.ruc || target.razonSocial || target.nombreComercial)) {
+      return target as RucQueryResult;
+    }
+    return null;
+  };
+
   // Intento 1: A través de /api/ruc/:ruc
   try {
     const response = await fetch(`/api/ruc/${cleanRuc}`, {
@@ -86,15 +119,31 @@ export async function queryRuc(ruc: string): Promise<RucQueryResult> {
     const contentType = response.headers.get('content-type') || '';
     if (response.ok && contentType.includes('application/json')) {
       const resJson = await response.json();
-      if (resJson?.success && resJson?.data) {
-        return resJson.data as RucQueryResult;
-      }
+      const parsed = parseRucPayload(resJson);
+      if (parsed) return parsed;
     }
   } catch (err) {
-    console.warn('Proxy /api/ruc falló, intentando consulta directa:', err);
+    console.warn('Proxy /api/ruc/:ruc falló:', err);
   }
 
-  // Intento 2: Fallback directo a apisperu.com
+  // Intento 2: A través de /api/ruc?ruc=:ruc
+  try {
+    const response = await fetch(`/api/ruc?ruc=${cleanRuc}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (response.ok && contentType.includes('application/json')) {
+      const resJson = await response.json();
+      const parsed = parseRucPayload(resJson);
+      if (parsed) return parsed;
+    }
+  } catch (err) {
+    console.warn('Proxy /api/ruc?ruc= falló:', err);
+  }
+
+  // Intento 3: Fallback directo a apisperu.com
   try {
     const directUrl = `${DIRECT_APISPERU_BASE}/api/v1/ruc/${cleanRuc}`;
     const directRes = await fetch(directUrl, {
@@ -107,9 +156,8 @@ export async function queryRuc(ruc: string): Promise<RucQueryResult> {
 
     if (directRes.ok) {
       const data = await directRes.json();
-      if (data && (data.ruc || data.razonSocial || data.nombreComercial)) {
-        return data as RucQueryResult;
-      }
+      const parsed = parseRucPayload(data);
+      if (parsed) return parsed;
     }
   } catch (fallbackErr) {
     console.error('Error en fallback directo RUC:', fallbackErr);
