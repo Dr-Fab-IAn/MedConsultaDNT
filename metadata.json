@@ -1,0 +1,6 @@
+{
+  "name": "MedConsulta DNT - Padrón Nominal & Consulta DNI/RUC",
+  "description": "Sistema clínico para la Estrategia de Daños No Transmisibles (DNT) con consulta en tiempo real de DNI/RUC, seguimiento de pacientes con HTA y Diabetes, y exportación oficial de padrón en .xls",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Healthcare staff member with role-based access control (RBAC)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "medico", "enfermero", "digitador"] },
+        "roleTitle": { "type": "string" },
+        "colegiatura": { "type": "string" },
+        "establecimiento": { "type": "string" },
+        "codigoRenaes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastLogin": { "type": "string" }
+      },
+      "required": ["uid", "email", "displayName", "role"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient enrolled in the MINSA DNT nominal registry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dni": { "type": "string" },
+        "nombreCompleto": { "type": "string" },
+        "establecimiento": { "type": "string" },
+        "codigoRenaes": { "type": "string" },
+        "notasMedicas": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedByRole": { "type": "string" },
+        "fechaActualizacion": { "type": "string" }
+      },
+      "required": ["id", "dni", "nombreCompleto"]
+    },
+    "EstablishmentSyncState": {
+      "title": "EstablishmentSyncState",
+      "description": "Cloud synchronization snapshot and status of an establishment's DNT nominal registry",
+      "type": "object",
+      "properties": {
+        "codigoRenaes": { "type": "string" },
+        "establecimiento": { "type": "string" },
+        "lastSyncTime": { "type": "string" },
+        "patientCount": { "type": "number" },
+        "patientsJson": { "type": "string" },
+        "syncedBy": { "type": "string" }
+      },
+      "required": ["codigoRenaes", "lastSyncTime", "patientCount"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles with clinical roles and access permissions"
+    },
+    "/establishments/{codigoRenaes}": {
+      "schema": { "$ref": "#/entities/EstablishmentSyncState" },
+      "description": "Synced nominal registry snapshots keyed by establishment code"
+    },
+    "/establishments/{codigoRenaes}/patients/{patientId}": {
+      "schema": { "$ref": "#/entities/Patient" },
+      "description": "Individual patient records for fine-grained multi-device sync"
+    }
+  }
+}
